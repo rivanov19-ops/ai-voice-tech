@@ -65,55 +65,144 @@ const available = [
   },
 ]
 
-// ВАРИАНТ 1: Вращающаяся нейросеть
+// Двухслойная нейросеть с импульсами данных
 function AIIllustration() {
-  const R = 62
   const cx = 80, cy = 80
-  const count = 7
-  const nodes = Array.from({ length: count }, (_, i) => {
-    const angle = (2 * Math.PI * i) / count - Math.PI / 2
-    return { x: cx + R * Math.cos(angle), y: cy + R * Math.sin(angle), r: i % 2 === 0 ? 4 : 3 }
+  const Router = 68, Rinner = 38
+  const outerCount = 9
+  const innerCount = 5
+
+  const outerNodes = Array.from({ length: outerCount }, (_, i) => {
+    const angle = (2 * Math.PI * i) / outerCount - Math.PI / 2
+    return { x: cx + Router * Math.cos(angle), y: cy + Router * Math.sin(angle) }
   })
-  const lines: [number, number][] = []
-  for (let i = 0; i < count; i++) {
-    lines.push([i, (i + 1) % count])
-    lines.push([i, (i + 2) % count])
-    lines.push([i, (i + 3) % count])
+  const innerNodes = Array.from({ length: innerCount }, (_, i) => {
+    const angle = (2 * Math.PI * i) / innerCount - Math.PI / 2 + 0.3
+    return { x: cx + Rinner * Math.cos(angle), y: cy + Rinner * Math.sin(angle) }
+  })
+
+  // соединения inner → outer (каждый inner к 3 ближайшим outer)
+  const crossLines: { a: typeof innerNodes[0]; b: typeof outerNodes[0]; key: string }[] = []
+  innerNodes.forEach((inn, i) => {
+    const baseIdx = Math.round((i / innerCount) * outerCount)
+    for (let k = -1; k <= 1; k++) {
+      const oi = (baseIdx + k + outerCount) % outerCount
+      crossLines.push({ a: inn, b: outerNodes[oi], key: `${i}-${oi}` })
+    }
+  })
+
+  // соединения внутри outer (соседи)
+  const outerLines: { a: typeof outerNodes[0]; b: typeof outerNodes[0] }[] = []
+  for (let i = 0; i < outerCount; i++) {
+    outerLines.push({ a: outerNodes[i], b: outerNodes[(i + 1) % outerCount] })
   }
 
   return (
     <div style={{ position: 'relative', width: 180, height: 180, margin: '0 auto' }}>
+      {/* мягкий glow на фоне */}
       <div style={{
         position: 'absolute', inset: 0, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(124,92,252,0.15) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(124,92,252,0.18) 0%, transparent 70%)',
+        animation: 'glowPulse 4s ease-in-out infinite',
       }} />
 
+      {/* расширяющиеся волны */}
+      {[0, 1.3, 2.6].map((d, i) => (
+        <div key={i} style={{
+          position: 'absolute', top: '50%', left: '50%',
+          width: 60, height: 60, marginLeft: -30, marginTop: -30,
+          borderRadius: '50%',
+          border: '1.5px solid rgba(124,92,252,0.35)',
+          animation: 'ripple 4s ease-out infinite',
+          animationDelay: `${d}s`,
+        }} />
+      ))}
+
+      {/* OUTER ring — вращается по часовой */}
       <svg viewBox="0 0 160 160" style={{
         position: 'absolute', inset: 0, width: '100%', height: '100%',
-        animation: 'rotateSlow 12s linear infinite',
+        animation: 'rotateSlow 22s linear infinite',
         transformOrigin: '50% 50%',
       }}>
-        {lines.map(([a, b], i) => (
+        {outerLines.map((l, i) => (
           <line key={i}
-            x1={nodes[a].x} y1={nodes[a].y}
-            x2={nodes[b].x} y2={nodes[b].y}
-            stroke="#7C5CFC" strokeWidth="0.7"
+            x1={l.a.x} y1={l.a.y} x2={l.b.x} y2={l.b.y}
+            stroke="rgba(124,92,252,0.4)" strokeWidth="0.7"
             style={{
-              animation: `linePulse ${2 + (i % 4) * 0.4}s ease-in-out infinite alternate`,
-              animationDelay: `${(i * 0.2) % 2}s`,
+              animation: `linePulse ${2 + (i % 3) * 0.4}s ease-in-out infinite alternate`,
+              animationDelay: `${i * 0.15}s`,
             }}
           />
         ))}
-        {nodes.map((n, i) => (
-          <circle key={i} cx={n.x} cy={n.y} r={n.r} fill="#7C5CFC"
-            style={{
-              animation: 'nodePulse 2s ease-in-out infinite alternate',
-              animationDelay: `${i * 0.28}s`,
-            }}
-          />
+        {outerNodes.map((n, i) => (
+          <g key={i}>
+            <circle cx={n.x} cy={n.y} r="6" fill="#7C5CFC" opacity="0.15"
+              style={{ animation: `nodeFlash 3s ease-in-out infinite`, animationDelay: `${i * 0.4}s` }} />
+            <circle cx={n.x} cy={n.y} r="3.5" fill="#7C5CFC"
+              style={{ animation: 'nodePulse 2.2s ease-in-out infinite alternate', animationDelay: `${i * 0.22}s` }} />
+          </g>
         ))}
       </svg>
 
+      {/* CROSS lines + INNER ring — вращается против часовой */}
+      <svg viewBox="0 0 160 160" style={{
+        position: 'absolute', inset: 0, width: '100%', height: '100%',
+        animation: 'rotateReverse 16s linear infinite',
+        transformOrigin: '50% 50%',
+      }}>
+        {/* линии inner→outer */}
+        {crossLines.map((l, i) => (
+          <g key={l.key}>
+            <line
+              x1={l.a.x} y1={l.a.y} x2={l.b.x} y2={l.b.y}
+              stroke="url(#lineGrad)" strokeWidth="0.6"
+              style={{
+                animation: `linePulse ${1.8 + (i % 4) * 0.3}s ease-in-out infinite alternate`,
+                animationDelay: `${(i * 0.13) % 2.5}s`,
+              }}
+            />
+            {/* бегущая частица данных по каждой 2-й линии */}
+            {i % 2 === 0 && (
+              <circle r="1.6" fill="#FFFFFF"
+                style={{
+                  filter: 'drop-shadow(0 0 3px #7C5CFC)',
+                  animation: `flow-${i % 6} 2.4s linear infinite`,
+                  animationDelay: `${(i * 0.4) % 2.4}s`,
+                }}
+              />
+            )}
+          </g>
+        ))}
+        {/* inner-узлы */}
+        {innerNodes.map((n, i) => (
+          <g key={i}>
+            <circle cx={n.x} cy={n.y} r="5" fill="#5B8EF5" opacity="0.2"
+              style={{ animation: `nodeFlash 2.5s ease-in-out infinite`, animationDelay: `${i * 0.3 + 0.5}s` }} />
+            <circle cx={n.x} cy={n.y} r="2.5" fill="#5B8EF5"
+              style={{ animation: 'nodePulse 1.8s ease-in-out infinite alternate', animationDelay: `${i * 0.18}s` }} />
+          </g>
+        ))}
+
+        {/* анимация частиц — генерация ключевых кадров на основе уникальных пар */}
+        <defs>
+          <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#5B8EF5" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#7C5CFC" stopOpacity="0.3" />
+          </linearGradient>
+          {crossLines.filter((_, i) => i % 2 === 0).map((l, i) => (
+            <style key={i}>{`
+              @keyframes flow-${i % 6} {
+                0% { cx: ${l.a.x}; cy: ${l.a.y}; opacity: 0; }
+                10% { opacity: 1; }
+                90% { opacity: 1; }
+                100% { cx: ${l.b.x}; cy: ${l.b.y}; opacity: 0; }
+              }
+            `}</style>
+          ))}
+        </defs>
+      </svg>
+
+      {/* Центр */}
       <div style={{
         position: 'absolute', top: '50%', left: '50%',
         transform: 'translate(-50%, -50%)',
@@ -128,7 +217,7 @@ function AIIllustration() {
           {[12, 20, 28, 20, 12].map((h, i) => (
             <div key={i} style={{
               width: 4, height: h, borderRadius: 4,
-              background: 'rgba(255,255,255,0.9)',
+              background: 'rgba(255,255,255,0.95)',
               animation: 'wavebar 1.1s ease-in-out infinite alternate',
               animationDelay: `${i * 0.13}s`,
             }} />
@@ -148,6 +237,8 @@ function AIIllustration() {
           boxShadow: '0 4px 14px rgba(0,0,0,0.10)',
           display: 'flex', alignItems: 'center', gap: 5,
           zIndex: 10, whiteSpace: 'nowrap',
+          animation: `floatChip 3.5s ease-in-out infinite`,
+          animationDelay: `${i * 1.2}s`,
         }}>
           <span style={{
             width: 5, height: 5, borderRadius: '50%',
@@ -349,6 +440,26 @@ export default function SplashScreen({ onStart }: { onStart?: () => void }) {
         @keyframes nodePulse {
           from { opacity: 0.5; r: 3; }
           to   { opacity: 1;   r: 4.5; }
+        }
+        @keyframes nodeFlash {
+          0%, 90%, 100% { opacity: 0.15; transform: scale(1); transform-origin: center; }
+          92%, 95% { opacity: 0.6; }
+        }
+        @keyframes rotateReverse {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(-360deg); }
+        }
+        @keyframes glowPulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(1.08); }
+        }
+        @keyframes ripple {
+          0% { transform: scale(0.4); opacity: 0.9; border-width: 1.5px; }
+          100% { transform: scale(2.4); opacity: 0; border-width: 0.5px; }
+        }
+        @keyframes floatChip {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
         }
       `}</style>
     </div>
