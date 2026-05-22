@@ -212,7 +212,7 @@ function Animated({ delay, children }: { delay: number; children: React.ReactNod
   )
 }
 
-export default function SplashScreen() {
+export default function SplashScreen({ onStart }: { onStart?: () => void }) {
   return (
     <div style={{ minHeight: '100svh', width: '100%', display: 'flex', justifyContent: 'center', background: '#F5F4FA' }}>
       <div style={{
@@ -304,7 +304,7 @@ export default function SplashScreen() {
           {/* CTA */}
           <Animated delay={1350}>
             <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <button style={{
+              <button onClick={onStart} style={{
                 width: '100%', padding: '16px', borderRadius: 18, border: 'none',
                 background: 'linear-gradient(135deg, #7C5CFC, #5B8EF5)',
                 color: 'white', fontSize: 16, fontWeight: 600, cursor: 'pointer',
